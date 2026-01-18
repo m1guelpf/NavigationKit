@@ -1,4 +1,9 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 /// A generic router to manage navigation state for a given `NavigationDestination`.
 ///
@@ -45,11 +50,25 @@ public final class Router<D: NavigationDestination> {
 		self.identifierTab = identifierTab
 	}
 
+	public init(level: Int) where D.Tabs == NoTabs {
+		parent = nil
+		self.level = level
+		identifierTab = nil
+	}
+
 	private func resetContent() {
 		presentingAlert = nil
 		presentingSheet = nil
 		navigationStackPath = []
 		presentingFullScreen = nil
+	}
+
+	private func openExternalURL(_ url: URL) {
+		#if canImport(UIKit)
+		UIApplication.shared.open(url)
+		#elseif canImport(AppKit)
+		NSWorkspace.shared.open(url)
+		#endif
 	}
 }
 
@@ -98,8 +117,8 @@ public extension Router {
 	func navigate(to destination: D.Kind) {
 		switch destination {
 			case let .tab(tab): select(tab: tab)
+			case let .external(url): openExternalURL(url)
 			case let .push(destination): push(destination)
-			case let .external(url): UIApplication.shared.open(url)
 			case let .alert(destination): presentingAlert = destination
 			case let .sheet(destination): presentingSheet = destination
 			case let .fullScreen(destination): presentingFullScreen = destination
@@ -145,6 +164,41 @@ public extension Router {
 		_ = navigationStackPath.popLast()
 	}
 }
+
+// MARK: - Deeplink Handling
+
+public extension Router {
+	/// Handles a parsed deeplink by navigating to its destination.
+	/// - Parameters:
+	///   - deeplink: The deeplink to handle.
+	///   - dismissFirst: Whether to dismiss all presented content before navigating.
+	func handle(deeplink: D.Deeplinks, dismissFirst: Bool = true) {
+		if dismissFirst { resetContent() }
+
+		// We need to cast the destination to the correct type
+		// This is safe because DeeplinkRepresentable.Destination is constrained to NavigationDestination
+		if let destination = deeplink.destination as? D.Kind {
+			navigate(to: destination)
+		}
+	}
+
+	/// Attempts to parse and handle a URL as a deeplink.
+	/// - Parameters:
+	///   - url: The URL to parse and handle.
+	///   - configuration: The parser configuration.
+	/// - Returns: `true` if the URL was successfully handled, `false` otherwise.
+	@discardableResult
+	func handleURL(_ url: URL, configuration: DeeplinkParser<D>.Configuration = .default) -> Bool {
+		let parser = DeeplinkParser<D>(configuration: configuration)
+
+		guard let deeplink = parser.parse(url) else { return false }
+
+		handle(deeplink: deeplink, dismissFirst: configuration.dismissBeforeNavigating)
+		return true
+	}
+}
+
+// MARK: - Debugging
 
 extension Router: @MainActor CustomDebugStringConvertible {
 	public var debugDescription: String {

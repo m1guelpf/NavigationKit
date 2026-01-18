@@ -48,11 +48,13 @@ private struct InnerContainer<Content: View, D: NavigationDestination>: View {
 				sheet.view
 			}
 		}
+		#if os(iOS)
 		.fullScreenCover(item: $router.presentingFullScreen) { fullScreen in
 			NavigationContainer(parentRouter: router) {
 				fullScreen.content
 			}
 		}
+		#endif
 		.alert(
 			router.presentingAlert?.alert.title ?? "",
 			isPresented: router[alert: \.presentingAlert],
@@ -60,6 +62,11 @@ private struct InnerContainer<Content: View, D: NavigationDestination>: View {
 			actions: { AnyView($0.alert.actions) },
 			message: { $0.alert.message.map { Text($0) } }
 		)
+		.onOpenURL { url in
+			guard router.level == 1 else { return }
+
+			router.handleURL(url)
+		}
 	}
 
 	@ViewBuilder func navigationView(for destination: D.Sheets, from router: Router<D>) -> some View {

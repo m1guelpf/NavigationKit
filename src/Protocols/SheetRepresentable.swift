@@ -30,3 +30,25 @@ public extension SheetRepresentable {
 			.toolbarTitleDisplayMode(titleDisplayMode)
 	}
 }
+
+/// A placeholder type for apps that don't use sheets.
+///
+/// This type is used as the default `Sheets` associated type in
+/// `NavigationDestination`. It has no sheets and will never trigger.
+///
+/// You don't need to interact with this type directly. Simply omit the
+/// `Sheets` typealias from your `NavigationDestination` conformance
+/// to use this default.
+public enum NoSheets: Identifiable, SheetRepresentable {
+	public var id: String {
+		switch self {
+			//
+		}
+	}
+
+	public var content: some View {
+		switch self {
+			default: EmptyView()
+		}
+	}
+}
